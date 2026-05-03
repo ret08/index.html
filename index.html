@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CS FPS FIXED BUILD</title>
+<title>CS FPS CLEAN BUILD</title>
 
 <style>
 body { margin:0; overflow:hidden; background:#111; }
@@ -25,13 +25,11 @@ body { margin:0; overflow:hidden; background:#111; }
  margin-top:-10px;
  pointer-events:none;
 }
-
 #crosshair:before, #crosshair:after {
  content:'';
  position:absolute;
  background:white;
 }
-
 #crosshair:before { width:2px; height:20px; left:9px; }
 #crosshair:after { width:20px; height:2px; top:9px; }
 
@@ -43,10 +41,9 @@ body { margin:0; overflow:hidden; background:#111; }
  height:30px;
  margin-left:-15px;
  margin-top:-15px;
- pointer-events:none;
  opacity:0;
+ pointer-events:none;
 }
-
 #hitmarker:before, #hitmarker:after {
  content:'';
  position:absolute;
@@ -56,7 +53,6 @@ body { margin:0; overflow:hidden; background:#111; }
  top:0;
  left:14px;
 }
-
 #hitmarker:before { transform:rotate(45deg); }
 #hitmarker:after { transform:rotate(-45deg); }
 
@@ -76,8 +72,7 @@ body { margin:0; overflow:hidden; background:#111; }
 <body>
 
 <div id="ui">
-HP: <span id="hp">100</span><br>
-Ammo: <span id="ammo">∞</span>
+HP: <span id="hp">100</span>
 </div>
 
 <div id="crosshair"></div>
@@ -88,29 +83,18 @@ Ammo: <span id="ammo">∞</span>
 
 <script>
 
-// ================= SETUP =================
+// ================= SCENE =================
 const scene = new THREE.Scene();
-
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
-const canvas = renderer.domElement;
 
-// click game to lock mouse
-canvas.addEventListener("click", () => {
- canvas.requestPointerLock();
-});
-
-// optional: detect lock/unlock
-document.addEventListener("pointerlockchange", () => {
- console.log(
-  document.pointerLockElement === canvas
-   ? "Mouse locked"
-   : "Mouse unlocked"
- );
-});
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
+
+// pointer lock (FIXED)
+const canvas = renderer.domElement;
+canvas.addEventListener("click", () => canvas.requestPointerLock());
 
 // ================= FLOOR =================
 const floor = new THREE.Mesh(
@@ -129,7 +113,7 @@ function wall(x,z,w,h,d){
  );
  m.position.set(x,h/2,z);
  scene.add(m);
- m.box=new THREE.Box3().setFromObject(m);
+ m.box = new THREE.Box3().setFromObject(m);
  walls.push(m);
 }
 
@@ -141,75 +125,86 @@ wall(25,0,2,5,50);
 // ================= PLAYER =================
 camera.position.set(0,2,5);
 
-let hp=100;
-let velocityY=0;
-let onGround=false;
+let hp = 100;
+let velocityY = 0;
+let onGround = false;
 
-const gravity=-0.015;
-const jumpStrength=0.35;
+const gravity = -0.02;
+const jumpPower = 0.4;
 
 // ================= INPUT =================
-const keys={};
+const keys = {};
 document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
 document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
 let yaw=0,pitch=0;
-document.body.onclick=()=>document.body.requestPointerLock();
 
 document.addEventListener("mousemove",e=>{
- yaw-=e.movementX*0.002;
- pitch-=e.movementY*0.002;
- pitch=Math.max(-1.5,Math.min(1.5,pitch));
+ if(document.pointerLockElement !== canvas) return;
+ yaw -= e.movementX * 0.002;
+ pitch -= e.movementY * 0.002;
+ pitch = Math.max(-1.5, Math.min(1.5, pitch));
 });
 
-// jump
 document.addEventListener("keydown",e=>{
- if(e.code==="Space"&&onGround){
-  velocityY=jumpStrength;
-  onGround=false;
+ if(e.code==="Space" && onGround){
+  velocityY = jumpPower;
+  onGround = false;
  }
 });
 
-// ================= FEEDBACK =================
+// ================= UI =================
 function hitmarker(){
  const h=document.getElementById("hitmarker");
  h.style.opacity=1;
  setTimeout(()=>h.style.opacity=0,100);
 }
 
-function killfeed(text){
+function killfeed(msg){
  const k=document.getElementById("killfeed");
  const d=document.createElement("div");
  d.className="kill";
- d.textContent=text;
+ d.textContent=msg;
  k.appendChild(d);
- setTimeout(()=>{
-  d.style.opacity=0;
-  setTimeout(()=>d.remove(),2000);
- },2000);
+ setTimeout(()=>{ d.style.opacity=0; setTimeout(()=>d.remove(),2000); },2000);
 }
+
+// ================= TRACERS =================
+const tracers=[];
+function createTracer(start,end){
+ const mat = new THREE.LineBasicMaterial({color:0xffaa00});
+ const geo = new THREE.BufferGeometry().setFromPoints([start,end]);
+ const line = new THREE.Line(geo,mat);
+ scene.add(line);
+ tracers.push({line,life:0.1});
+}
+
+// ================= AK47 VIEWMODEL =================
+function createAK(){
+ const gun = new THREE.Group();
+ const metal = new THREE.MeshStandardMaterial({color:0x2b2b2b});
+ const wood = new THREE.MeshStandardMaterial({color:0x6b3f1d});
+
+ const body = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.12,1.5),metal);
+ gun.add(body);
+
+ const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,1.4),metal);
+ barrel.position.set(0,0.08,-1.05);
+ gun.add(barrel);
+
+ const stock = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.2,0.95),wood);
+ stock.position.set(0,0,1);
+ gun.add(stock);
+
+ return gun;
+}
+
+const ak = createAK();
+ak.position.set(0.25,-0.25,-0.6);
+camera.add(ak);
 
 // ================= ENEMIES =================
-const enemies=[];const tracers = [];
-
-function createTracer(start, end){
- const material = new THREE.LineBasicMaterial({ color: 0xffaa00 });
-
- const points = [];
- points.push(start.clone());
- points.push(end.clone());
-
- const geometry = new THREE.BufferGeometry().setFromPoints(points);
- const line = new THREE.Line(geometry, material);
-
- scene.add(line);
-
- tracers.push({
-  line,
-  life: 0.08
- });
-}
-
+const enemies=[];
 function spawn(){
  const g=new THREE.Group();
 
@@ -225,16 +220,14 @@ function spawn(){
  );
  head.position.y=1.4;
 
- g.add(body);
- g.add(head);
+ g.add(body); g.add(head);
 
  g.position.set((Math.random()-0.5)*20,0,(Math.random()-0.5)*20);
  scene.add(g);
 
  enemies.push({
   model:g,
-  body,
-  head,
+  body,head,
   hp:100,
   speed:0.02
  });
@@ -243,16 +236,15 @@ setInterval(spawn,2000);
 
 // ================= SHOOT =================
 let recoil=0;
-let last=0;
+let lastShot=0;
 
-document.addEventListener("click",()=>{
-document.addEventListener("click", ()=>{
+document.addEventListener("mousedown",()=>{
 
- const now = Date.now();
- if(now - last < 120) return;
- last = now;
+ const now=Date.now();
+ if(now-lastShot<120) return;
+ lastShot=now;
 
- const pattern = [
+ const pattern=[
   {x:0,y:0},{x:0.1,y:-0.2},{x:-0.15,y:-0.3},
   {x:0.2,y:-0.35},{x:-0.2,y:-0.4}
  ];
@@ -260,181 +252,68 @@ document.addEventListener("click", ()=>{
  const r = pattern[recoil % pattern.length];
  recoil++;
 
+ const ray = new THREE.Raycaster();
+ ray.setFromCamera(new THREE.Vector2(r.x*0.01,r.y*0.01),camera);
 
- // 🔫 tracer start point
  const start = camera.position.clone();
-
- // default miss endpoint
- const end = start.clone().add(ray.ray.direction.clone().multiplyScalar(50));
-
- let hitSomething = false;
+ let hit = false;
 
  enemies.forEach((e,i)=>{
 
-  const h = ray.intersectObject(e.head,true);
-  const b = ray.intersectObject(e.body,true);
+  const h = ray.intersectObject(e.head);
+  const b = ray.intersectObject(e.body);
 
   if(h.length){
    e.hp = 0;
-   hitSomething = true;
+   hit = true;
    hitmarker();
-   killfeed("🔴 Headshot kill");
+   killfeed("🔴 Headshot");
   }
-
   else if(b.length){
    e.hp -= 50;
-   hitSomething = true;
+   hit = true;
    hitmarker();
   }
 
-  if(e.hp <= 0){
+  if(e.hp<=0){
    scene.remove(e.model);
    enemies.splice(i,1);
-   killfeed("☠ Enemy eliminated");
+   killfeed("☠ Enemy down");
   }
  });
 
- // 🔥 TRACER LINE
- createTracer(
-  start,
-  hitSomething
-   ? ray.ray.origin.clone().add(ray.ray.direction.clone().multiplyScalar(20))
-   : end
- );
+ const dir = ray.ray.direction.clone().multiplyScalar(50);
+ const end = start.clone().add(dir);
 
-});
- const now=Date.now();
- if(now-last<120) return;
- last=now;
-
- const pattern=[
-  {x:0,y:0},{x:0.1,y:-0.2},{x:-0.15,y:-0.3},
-  {x:0.2,y:-0.35},{x:-0.2,y:-0.4}
- ];
-
- const r=pattern[recoil%pattern.length];
- recoil++;
-
- const ray=new THREE.Raycaster();
- ray.setFromCamera(new THREE.Vector2(r.x*0.01,r.y*0.01),camera);
-
- enemies.forEach((e,i)=>{
-
- const h=ray.intersectObject(e.head,true);
- const b=ray.intersectObject(e.body,true);
-
- if(h.length){
-  e.hp=0;
-  hitmarker();
-  killfeed("🔴 Headshot kill");
- }
-
- else if(b.length){
-  e.hp-=50;
-  hitmarker();
- }
-
- if(e.hp<=0){
-  scene.remove(e.model);
-  enemies.splice(i,1);
-  killfeed("☠ Enemy eliminated");
- }
- });
+ createTracer(start,end);
 });
 
 // ================= LOOP =================
-function loop()for(let i = tracers.length - 1; i >= 0; i--){
- tracers[i].life -= 0.016;
-
- if(tracers[i].life <= 0){
-  scene.remove(tracers[i].line);
-  tracers.splice(i,1);
- }
-}{function createAK(){
- const gun = new THREE.Group();
-
- const metal = new THREE.MeshStandardMaterial({ color: 0x2b2b2b });
- const wood = new THREE.MeshStandardMaterial({ color: 0x6b3f1d });
-
- // BODY
- const body = new THREE.Mesh(
-  new THREE.BoxGeometry(0.45, 0.12, 1.5),
-  metal
- );
- gun.add(body);
-
- // BARREL
- const barrel = new THREE.Mesh(
-  new THREE.BoxGeometry(0.06, 0.06, 1.4),
-  metal
- );
- barrel.position.set(0, 0.08, -1.05);
- gun.add(barrel);
-
- // HANDGUARD
- const handguard = new THREE.Mesh(
-  new THREE.BoxGeometry(0.22, 0.18, 0.65),
-  wood
- );
- handguard.position.set(0, 0, -0.35);
- gun.add(handguard);
-
- // MAGAZINE (angled CS style)
- const mag = new THREE.Mesh(
-  new THREE.BoxGeometry(0.16, 0.55, 0.25),
-  metal
- );
- mag.position.set(0, -0.25, 0.15);
- mag.rotation.x = -0.25;
- gun.add(mag);
-
- // STOCK
- const stock = new THREE.Mesh(
-  new THREE.BoxGeometry(0.25, 0.2, 0.95),
-  wood
- );
- stock.position.set(0, 0, 1.0);
- gun.add(stock);
-
- return gun;
-}camera.position.set(0,2,5);const ak = createAK();
-ak.position.set(0.25, -0.25, -0.6);
-camera.add(ak);ak.position.y = -0.25 + Math.sin(Date.now() * 0.01) * 0.01;
-ak.position.x = 0.25 + Math.sin(Date.now() * 0.01) * 0.01;
- requestAnimationFrame(loop);
+function animate(){
+ requestAnimationFrame(animate);
 
  camera.rotation.order="YXZ";
  camera.rotation.y=yaw;
  camera.rotation.x=pitch;
 
-const moveSpeed = 0.12;
+ // ===== CS MOVEMENT =====
+ let move = new THREE.Vector3();
 
-let move = new THREE.Vector3();
+ if(keys["w"]) move.z -= 1;
+ if(keys["s"]) move.z += 1;
+ if(keys["a"]) move.x -= 1;
+ if(keys["d"]) move.x += 1;
 
-// input
-if (keys["w"]) move.z -= 1;
-if (keys["s"]) move.z += 1;
-if (keys["a"]) move.x -= 1;
-if (keys["d"]) move.x += 1;
+ if(move.length()>0) move.normalize();
 
-// normalize so diagonal isn't faster
-if (move.length() > 0) move.normalize();
+ move.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+ move.multiplyScalar(0.12);
 
-// 🔥 rotate movement to match camera direction
-move.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-
-// apply speed
-move.multiplyScalar(moveSpeed);
-
-// predicted next position
-const next = camera.position.clone();
-next.add(move);const box=new THREE.Box3().setFromCenterAndSize(
- next,new THREE.Vector3(1,2,1)
-);
-
- const box=new THREE.Box3().setFromCenterAndSize(next,new THREE.Vector3(1,2,1));
+ const next = camera.position.clone().add(move);
 
  let blocked=false;
+ const box = new THREE.Box3().setFromCenterAndSize(next,new THREE.Vector3(1,2,1));
+
  for(let w of walls){
   if(box.intersectsBox(w.box)) blocked=true;
  }
@@ -442,8 +321,8 @@ next.add(move);const box=new THREE.Box3().setFromCenterAndSize(
  if(!blocked) camera.position.copy(next);
 
  // gravity
- camera.position.y+=velocityY;
- velocityY+=gravity;
+ camera.position.y += velocityY;
+ velocityY += gravity;
 
  if(camera.position.y<=2){
   camera.position.y=2;
@@ -451,10 +330,10 @@ next.add(move);const box=new THREE.Box3().setFromCenterAndSize(
   onGround=true;
  } else onGround=false;
 
- // AI
+ // enemies
  enemies.forEach(e=>{
-  const dir=camera.position.clone().sub(e.model.position);
-  const dist=dir.length();
+  const dir = camera.position.clone().sub(e.model.position);
+  const dist = dir.length();
   dir.normalize();
 
   if(dist<20){
@@ -462,14 +341,24 @@ next.add(move);const box=new THREE.Box3().setFromCenterAndSize(
   }
 
   if(dist<1.5){
-   hp-=0.2;
-   document.getElementById("hp").textContent=Math.floor(hp);
+   hp -= 0.2;
+   document.getElementById("hp").textContent = Math.floor(hp);
   }
  });
 
+ // tracers fade
+ for(let i=tracers.length-1;i>=0;i--){
+  tracers[i].life -= 0.016;
+  if(tracers[i].life<=0){
+   scene.remove(tracers[i].line);
+   tracers.splice(i,1);
+  }
+ }
+
  renderer.render(scene,camera);
 }
-loop();
+
+animate();
 
 </script>
 
