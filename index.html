@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CS FPS Full Map Build</title>
+<title>CS FPS Dust2 Style Map</title>
 
 <style>
 body { margin:0; overflow:hidden; background:#111; }
@@ -35,7 +35,6 @@ body { margin:0; overflow:hidden; background:#111; }
 #crosshair:before { width:2px; height:20px; left:9px; }
 #crosshair:after { width:20px; height:2px; top:9px; }
 
-/* HITMARKER */
 #hitmarker {
  position:absolute;
  top:50%;
@@ -98,105 +97,110 @@ floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
 // ---------------- WALL SYSTEM ----------------
-const walls = [];
+const walls=[];
 
-function createWall(x, z, w, h, d) {
- const wall = new THREE.Mesh(
-  new THREE.BoxGeometry(w, h, d),
-  new THREE.MeshStandardMaterial({ color: 0x555555 })
+function createWall(x,z,w,h,d){
+ const wall=new THREE.Mesh(
+  new THREE.BoxGeometry(w,h,d),
+  new THREE.MeshStandardMaterial({color:0x555555})
  );
 
- wall.position.set(x, h/2, z);
+ wall.position.set(x,h/2,z);
  scene.add(wall);
 
- wall.box = new THREE.Box3().setFromObject(wall);
+ wall.box=new THREE.Box3().setFromObject(wall);
  walls.push(wall);
 }
 
-// MAP LAYOUT
-createWall(0, -10, 20, 4, 2);
-createWall(0, 10, 20, 4, 2);
-createWall(-10, 0, 2, 4, 20);
-createWall(10, 0, 2, 4, 20);
+// 🗺️ DUST2-STYLE MAP
+function buildMap(){
 
-createWall(-3, 0, 2, 2, 2);
-createWall(3, 0, 2, 2, 2);
-createWall(0, 5, 2, 2, 2);
+// OUTER BOUNDARY
+createWall(0,-25,60,5,2);
+createWall(0,25,60,5,2);
+createWall(-30,0,2,5,60);
+createWall(30,0,2,5,60);
+
+// MID
+createWall(0,0,4,3,10);
+createWall(-6,-3,2,3,6);
+createWall(6,3,2,3,6);
+
+// LONG A
+createWall(-15,-15,2,3,20);
+createWall(-22,-10,2,3,10);
+createWall(-18,-20,6,3,2);
+
+// B SITE
+createWall(15,15,8,3,8);
+createWall(18,18,2,3,6);
+createWall(12,12,2,3,6);
+
+// COVER
+createWall(-5,15,3,2,3);
+createWall(5,-15,3,2,3);
+createWall(10,0,3,2,3);
+createWall(-10,0,3,2,3);
+}
+
+buildMap();
 
 // ---------------- PLAYER ----------------
 camera.position.set(0,2,5);
-let hp = 100;
+let hp=100;
 
-let velocityY = 0;
-let onGround = false;
+let velocityY=0;
+let onGround=false;
 
-const gravity = -0.015;
-const jumpStrength = 0.35;
+const gravity=-0.015;
+const jumpStrength=0.35;
 
 // ---------------- INPUT ----------------
-const keys = {};
-document.addEventListener("keydown", e=>keys[e.key.toLowerCase()]=true);
-document.addEventListener("keyup", e=>keys[e.key.toLowerCase()]=false);
+const keys={};
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-// MOUSE LOOK
-let yaw=0, pitch=0;
+let yaw=0,pitch=0;
 document.body.onclick=()=>document.body.requestPointerLock();
 
-document.addEventListener("mousemove", e=>{
- yaw -= e.movementX * 0.002;
- pitch -= e.movementY * 0.002;
- pitch = Math.max(-1.5, Math.min(1.5, pitch));
+document.addEventListener("mousemove",e=>{
+ yaw-=e.movementX*0.002;
+ pitch-=e.movementY*0.002;
+ pitch=Math.max(-1.5,Math.min(1.5,pitch));
 });
 
 // JUMP
-document.addEventListener("keydown",(e)=>{
- if(e.code==="Space" && onGround){
-  velocityY = jumpStrength;
-  onGround = false;
+document.addEventListener("keydown",e=>{
+ if(e.code==="Space"&&onGround){
+  velocityY=jumpStrength;
+  onGround=false;
  }
 });
 
 // ---------------- WEAPONS ----------------
-const weapons = {
- ak:{
-  ammo:30,
-  max:30,
-  fireRate:90,
-  recoil:[
-   {x:0,y:0},
-   {x:0.2,y:-0.3},
-   {x:-0.1,y:-0.4},
-   {x:0.3,y:-0.5},
-   {x:-0.2,y:-0.6},
-   {x:0.4,y:-0.7}
-  ]
- },
- pistol:{
-  ammo:12,
-  max:12,
-  fireRate:400,
-  recoil:[
-   {x:0,y:0},
-   {x:0.05,y:-0.1}
-  ]
- }
+const weapons={
+ ak:{ammo:30,max:30,fireRate:90,recoil:[
+  {x:0,y:0},{x:0.2,y:-0.3},{x:-0.1,y:-0.4},
+  {x:0.3,y:-0.5},{x:-0.2,y:-0.6},{x:0.4,y:-0.7}
+ ]},
+ pistol:{ammo:12,max:12,fireRate:400,recoil:[
+  {x:0,y:0},{x:0.05,y:-0.1}
+ ]}
 };
 
 let currentWeapon="ak";
-let recoilIndex=0;
-let lastShot=0;
-let reloading=false;
+let recoilIndex=0,lastShot=0,reloading=false;
 
 function updateUI(){
- document.getElementById("ammo").textContent =
- weapons[currentWeapon].ammo + " ("+currentWeapon.toUpperCase()+")";
+ document.getElementById("ammo").textContent=
+ weapons[currentWeapon].ammo+" ("+currentWeapon.toUpperCase()+")";
 }
 updateUI();
 
-document.addEventListener("keydown",(e)=>{
- if(e.key==="1") switchWeapon("ak");
- if(e.key==="2") switchWeapon("pistol");
- if(e.key.toLowerCase()==="r") reload();
+document.addEventListener("keydown",e=>{
+ if(e.key==="1")switchWeapon("ak");
+ if(e.key==="2")switchWeapon("pistol");
+ if(e.key.toLowerCase()==="r")reload();
 });
 
 function switchWeapon(w){
@@ -206,7 +210,7 @@ function switchWeapon(w){
 }
 
 function reload(){
- if(reloading) return;
+ if(reloading)return;
  reloading=true;
 
  setTimeout(()=>{
@@ -223,51 +227,6 @@ function showHitmarker(){
  h.style.opacity=1;
  setTimeout(()=>h.style.opacity=0,120);
 }
-
-// ---------------- VIEWMODEL ----------------
-function createArms(){
- const arms=new THREE.Group();
-
- const skin=new THREE.MeshStandardMaterial({color:0xffd1a4});
- const sleeve=new THREE.MeshStandardMaterial({color:0x222222});
-
- const L=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.6,0.15),skin);
- L.position.set(-0.25,-0.2,-0.3);
- arms.add(L);
-
- const R=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.6,0.15),skin);
- R.position.set(0.25,-0.2,-0.3);
- arms.add(R);
-
- return arms;
-}
-
-camera.add(createArms());
-
-// AK
-function createAK(){
- const gun=new THREE.Group();
-
- const bodyMat=new THREE.MeshStandardMaterial({color:0x2b2b2b});
- const woodMat=new THREE.MeshStandardMaterial({color:0x5a3a1b});
-
- const body=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.15,1.2),bodyMat);
- gun.add(body);
-
- const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,1),bodyMat);
- barrel.position.set(0,0.1,-0.9);
- gun.add(barrel);
-
- return gun;
-}
-
-const ak=createAK();
-ak.position.set(0.1,-0.15,-0.5);
-camera.add(ak);
-
-// FLASH
-const flash=new THREE.PointLight(0xffaa33,0,5);
-camera.add(flash);
 
 // ---------------- ENEMIES ----------------
 const enemies=[];
@@ -309,15 +268,12 @@ document.addEventListener("click",()=>{
  const w=weapons[currentWeapon];
  const now=Date.now();
 
- if(reloading||w.ammo<=0) return;
- if(now-lastShot<w.fireRate) return;
+ if(reloading||w.ammo<=0)return;
+ if(now-lastShot<w.fireRate)return;
 
  w.ammo--;
  lastShot=now;
  updateUI();
-
- flash.intensity=5;
- setTimeout(()=>flash.intensity=0,50);
 
  const r=w.recoil[recoilIndex]||w.recoil[w.recoil.length-1];
  recoilIndex++;
@@ -355,31 +311,28 @@ function animate(){
  camera.rotation.x=pitch;
 
  let move=new THREE.Vector3();
- if(keys["w"]) move.z-=0.1;
- if(keys["s"]) move.z+=0.1;
- if(keys["a"]) move.x-=0.1;
- if(keys["d"]) move.x+=0.1;
+ if(keys["w"])move.z-=0.1;
+ if(keys["s"])move.z+=0.1;
+ if(keys["a"])move.x-=0.1;
+ if(keys["d"])move.x+=0.1;
 
- // COLLISION
- const nextPos=camera.position.clone();
- nextPos.x+=move.x;
- nextPos.z+=move.z;
+ const next=camera.position.clone();
+ next.x+=move.x;
+ next.z+=move.z;
 
  const playerBox=new THREE.Box3().setFromCenterAndSize(
-  nextPos,
-  new THREE.Vector3(1,2,1)
+  next,new THREE.Vector3(1,2,1)
  );
 
  let blocked=false;
 
  for(let w of walls){
   w.box.setFromObject(w);
-  if(playerBox.intersectsBox(w.box)) blocked=true;
+  if(playerBox.intersectsBox(w.box))blocked=true;
  }
 
- if(!blocked) camera.position.copy(nextPos);
+ if(!blocked)camera.position.copy(next);
 
- // gravity
  camera.position.y+=velocityY;
  velocityY+=gravity;
 
@@ -387,7 +340,7 @@ function animate(){
   camera.position.y=2;
   velocityY=0;
   onGround=true;
- } else onGround=false;
+ }else onGround=false;
 
  enemies.forEach(e=>{
   const dir=camera.position.clone().sub(e.model.position);
@@ -395,9 +348,7 @@ function animate(){
 
   dir.normalize();
 
-  if(dist<25){
-   e.model.position.add(dir.multiplyScalar(e.speed));
-  }
+  if(dist<25)e.model.position.add(dir.multiplyScalar(e.speed));
 
   if(dist<1.5){
    hp-=0.2;
