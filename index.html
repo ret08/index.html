@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CS FPS Full Build</title>
+<title>CS FPS Full Map Build</title>
 
 <style>
 body { margin:0; overflow:hidden; background:#111; }
@@ -35,7 +35,7 @@ body { margin:0; overflow:hidden; background:#111; }
 #crosshair:before { width:2px; height:20px; left:9px; }
 #crosshair:after { width:20px; height:2px; top:9px; }
 
-/* 🎯 HITMARKER */
+/* HITMARKER */
 #hitmarker {
  position:absolute;
  top:50%;
@@ -96,6 +96,32 @@ const floor = new THREE.Mesh(
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
+
+// ---------------- WALL SYSTEM ----------------
+const walls = [];
+
+function createWall(x, z, w, h, d) {
+ const wall = new THREE.Mesh(
+  new THREE.BoxGeometry(w, h, d),
+  new THREE.MeshStandardMaterial({ color: 0x555555 })
+ );
+
+ wall.position.set(x, h/2, z);
+ scene.add(wall);
+
+ wall.box = new THREE.Box3().setFromObject(wall);
+ walls.push(wall);
+}
+
+// MAP LAYOUT
+createWall(0, -10, 20, 4, 2);
+createWall(0, 10, 20, 4, 2);
+createWall(-10, 0, 2, 4, 20);
+createWall(10, 0, 2, 4, 20);
+
+createWall(-3, 0, 2, 2, 2);
+createWall(3, 0, 2, 2, 2);
+createWall(0, 5, 2, 2, 2);
 
 // ---------------- PLAYER ----------------
 camera.position.set(0,2,5);
@@ -167,7 +193,6 @@ function updateUI(){
 }
 updateUI();
 
-// SWITCH / RELOAD
 document.addEventListener("keydown",(e)=>{
  if(e.key==="1") switchWeapon("ak");
  if(e.key==="2") switchWeapon("pistol");
@@ -192,17 +217,14 @@ function reload(){
  },1200);
 }
 
-// 🎯 HITMARKER FUNCTION
+// HITMARKER
 function showHitmarker(){
  const h=document.getElementById("hitmarker");
  h.style.opacity=1;
-
- setTimeout(()=>{
-  h.style.opacity=0;
- },120);
+ setTimeout(()=>h.style.opacity=0,120);
 }
 
-// ---------------- VIEWMODEL ARMS ----------------
+// ---------------- VIEWMODEL ----------------
 function createArms(){
  const arms=new THREE.Group();
 
@@ -220,10 +242,9 @@ function createArms(){
  return arms;
 }
 
-const arms=createArms();
-camera.add(arms);
+camera.add(createArms());
 
-// ---------------- AK MODEL ----------------
+// AK
 function createAK(){
  const gun=new THREE.Group();
 
@@ -237,14 +258,6 @@ function createAK(){
  barrel.position.set(0,0.1,-0.9);
  gun.add(barrel);
 
- const stock=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.8),woodMat);
- stock.position.set(0,0,0.9);
- gun.add(stock);
-
- const mag=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.4,0.2),bodyMat);
- mag.position.set(0,-0.25,-0.2);
- gun.add(mag);
-
  return gun;
 }
 
@@ -252,7 +265,7 @@ const ak=createAK();
 ak.position.set(0.1,-0.15,-0.5);
 camera.add(ak);
 
-// MUZZLE FLASH
+// FLASH
 const flash=new THREE.PointLight(0xffaa33,0,5);
 camera.add(flash);
 
@@ -262,18 +275,22 @@ const enemies=[];
 function spawnEnemy(){
  const enemy=new THREE.Group();
 
- const bodyMat=new THREE.MeshStandardMaterial({color:0x8b0000});
- const headMat=new THREE.MeshStandardMaterial({color:0xffcc99});
-
- const body=new THREE.Mesh(new THREE.BoxGeometry(1,1.2,0.6),bodyMat);
+ const body=new THREE.Mesh(
+  new THREE.BoxGeometry(1,1.2,0.6),
+  new THREE.MeshStandardMaterial({color:0x8b0000})
+ );
  body.position.y=0.6;
- enemy.add(body);
 
- const head=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5),headMat);
+ const head=new THREE.Mesh(
+  new THREE.BoxGeometry(0.5,0.5,0.5),
+  new THREE.MeshStandardMaterial({color:0xffcc99})
+ );
  head.position.y=1.4;
+
+ enemy.add(body);
  enemy.add(head);
 
- enemy.position.set((Math.random()-0.5)*30,0,(Math.random()-0.5)*30);
+ enemy.position.set((Math.random()-0.5)*25,0,(Math.random()-0.5)*25);
  scene.add(enemy);
 
  enemies.push({
@@ -343,8 +360,24 @@ function animate(){
  if(keys["a"]) move.x-=0.1;
  if(keys["d"]) move.x+=0.1;
 
- camera.translateX(move.x);
- camera.translateZ(move.z);
+ // COLLISION
+ const nextPos=camera.position.clone();
+ nextPos.x+=move.x;
+ nextPos.z+=move.z;
+
+ const playerBox=new THREE.Box3().setFromCenterAndSize(
+  nextPos,
+  new THREE.Vector3(1,2,1)
+ );
+
+ let blocked=false;
+
+ for(let w of walls){
+  w.box.setFromObject(w);
+  if(playerBox.intersectsBox(w.box)) blocked=true;
+ }
+
+ if(!blocked) camera.position.copy(nextPos);
 
  // gravity
  camera.position.y+=velocityY;
@@ -356,11 +389,6 @@ function animate(){
   onGround=true;
  } else onGround=false;
 
- // arm sway
- arms.position.y=-0.05+Math.sin(Date.now()*0.008)*0.01;
- arms.position.x=Math.sin(Date.now()*0.008)*0.01;
-
- // AI
  enemies.forEach(e=>{
   const dir=camera.position.clone().sub(e.model.position);
   const dist=dir.length();
