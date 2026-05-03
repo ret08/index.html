@@ -232,7 +232,63 @@ let recoil=0;
 let last=0;
 
 document.addEventListener("click",()=>{
+document.addEventListener("click", ()=>{
 
+ const now = Date.now();
+ if(now - last < 120) return;
+ last = now;
+
+ const pattern = [
+  {x:0,y:0},{x:0.1,y:-0.2},{x:-0.15,y:-0.3},
+  {x:0.2,y:-0.35},{x:-0.2,y:-0.4}
+ ];
+
+ const r = pattern[recoil % pattern.length];
+ recoil++;
+
+
+ // 🔫 tracer start point
+ const start = camera.position.clone();
+
+ // default miss endpoint
+ const end = start.clone().add(ray.ray.direction.clone().multiplyScalar(50));
+
+ let hitSomething = false;
+
+ enemies.forEach((e,i)=>{
+
+  const h = ray.intersectObject(e.head,true);
+  const b = ray.intersectObject(e.body,true);
+
+  if(h.length){
+   e.hp = 0;
+   hitSomething = true;
+   hitmarker();
+   killfeed("🔴 Headshot kill");
+  }
+
+  else if(b.length){
+   e.hp -= 50;
+   hitSomething = true;
+   hitmarker();
+  }
+
+  if(e.hp <= 0){
+   scene.remove(e.model);
+   enemies.splice(i,1);
+   killfeed("☠ Enemy eliminated");
+  }
+ });
+
+ // 🔥 TRACER LINE
+ createTracer(
+  start,
+  hitSomething
+   ? ray.ray.origin.clone().add(ray.ray.direction.clone().multiplyScalar(20))
+   : end
+ );
+
+});
  const now=Date.now();
  if(now-last<120) return;
  last=now;
