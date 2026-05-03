@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CS FPS Dust2 Style Map</title>
+<title>CS FPS FULL FIXED BUILD</title>
 
 <style>
 body { margin:0; overflow:hidden; background:#111; }
@@ -59,7 +59,6 @@ body { margin:0; overflow:hidden; background:#111; }
 
 #hitmarker:before { transform:rotate(45deg); }
 #hitmarker:after { transform:rotate(-45deg); }
-
 </style>
 </head>
 
@@ -77,7 +76,7 @@ Ammo: <span id="ammo">30</span>
 
 <script>
 
-// ---------------- SCENE ----------------
+// ================= SCENE =================
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
@@ -85,10 +84,9 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// LIGHT
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
-// FLOOR
+// ================= FLOOR =================
 const floor = new THREE.Mesh(
  new THREE.PlaneGeometry(100,100),
  new THREE.MeshStandardMaterial({color:0x222222})
@@ -96,67 +94,55 @@ const floor = new THREE.Mesh(
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// ---------------- WALL SYSTEM ----------------
-const walls=[];
+// ================= WALLS =================
+const walls = [];
 
 function createWall(x,z,w,h,d){
- const wall=new THREE.Mesh(
+ const wall = new THREE.Mesh(
   new THREE.BoxGeometry(w,h,d),
   new THREE.MeshStandardMaterial({color:0x555555})
  );
-
  wall.position.set(x,h/2,z);
  scene.add(wall);
-
- wall.box=new THREE.Box3().setFromObject(wall);
+ wall.box = new THREE.Box3().setFromObject(wall);
  walls.push(wall);
 }
 
-// 🗺️ DUST2-STYLE MAP
+// MAP
 function buildMap(){
+ createWall(0,-25,60,5,2);
+ createWall(0,25,60,5,2);
+ createWall(-30,0,2,5,60);
+ createWall(30,0,2,5,60);
 
-// OUTER BOUNDARY
-createWall(0,-25,60,5,2);
-createWall(0,25,60,5,2);
-createWall(-30,0,2,5,60);
-createWall(30,0,2,5,60);
+ createWall(0,0,4,3,10);
+ createWall(-6,-3,2,3,6);
+ createWall(6,3,2,3,6);
 
-// MID
-createWall(0,0,4,3,10);
-createWall(-6,-3,2,3,6);
-createWall(6,3,2,3,6);
+ createWall(-15,-15,2,3,20);
+ createWall(-22,-10,2,3,10);
 
-// LONG A
-createWall(-15,-15,2,3,20);
-createWall(-22,-10,2,3,10);
-createWall(-18,-20,6,3,2);
+ createWall(15,15,8,3,8);
+ createWall(18,18,2,3,6);
 
-// B SITE
-createWall(15,15,8,3,8);
-createWall(18,18,2,3,6);
-createWall(12,12,2,3,6);
-
-// COVER
-createWall(-5,15,3,2,3);
-createWall(5,-15,3,2,3);
-createWall(10,0,3,2,3);
-createWall(-10,0,3,2,3);
+ createWall(-5,15,3,2,3);
+ createWall(5,-15,3,2,3);
 }
 
 buildMap();
 
-// ---------------- PLAYER ----------------
+// ================= PLAYER =================
 camera.position.set(0,2,5);
-let hp=100;
+let hp = 100;
 
-let velocityY=0;
-let onGround=false;
+let velocityY = 0;
+let onGround = false;
 
-const gravity=-0.015;
-const jumpStrength=0.35;
+const gravity = -0.015;
+const jumpStrength = 0.35;
 
-// ---------------- INPUT ----------------
-const keys={};
+// ================= INPUT =================
+const keys = {};
 document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
 document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
@@ -164,12 +150,11 @@ let yaw=0,pitch=0;
 document.body.onclick=()=>document.body.requestPointerLock();
 
 document.addEventListener("mousemove",e=>{
- yaw-=e.movementX*0.002;
- pitch-=e.movementY*0.002;
+ yaw -= e.movementX*0.002;
+ pitch -= e.movementY*0.002;
  pitch=Math.max(-1.5,Math.min(1.5,pitch));
 });
 
-// JUMP
 document.addEventListener("keydown",e=>{
  if(e.code==="Space"&&onGround){
   velocityY=jumpStrength;
@@ -177,11 +162,10 @@ document.addEventListener("keydown",e=>{
  }
 });
 
-// ---------------- WEAPONS ----------------
-const weapons={
+// ================= WEAPONS =================
+const weapons = {
  ak:{ammo:30,max:30,fireRate:90,recoil:[
-  {x:0,y:0},{x:0.2,y:-0.3},{x:-0.1,y:-0.4},
-  {x:0.3,y:-0.5},{x:-0.2,y:-0.6},{x:0.4,y:-0.7}
+  {x:0,y:0},{x:0.2,y:-0.3},{x:-0.1,y:-0.4}
  ]},
  pistol:{ammo:12,max:12,fireRate:400,recoil:[
   {x:0,y:0},{x:0.05,y:-0.1}
@@ -192,7 +176,7 @@ let currentWeapon="ak";
 let recoilIndex=0,lastShot=0,reloading=false;
 
 function updateUI(){
- document.getElementById("ammo").textContent=
+ document.getElementById("ammo").textContent =
  weapons[currentWeapon].ammo+" ("+currentWeapon.toUpperCase()+")";
 }
 updateUI();
@@ -210,25 +194,44 @@ function switchWeapon(w){
 }
 
 function reload(){
- if(reloading)return;
+ if(reloading) return;
  reloading=true;
+ ak.rotation.x=0.6;
 
  setTimeout(()=>{
   weapons[currentWeapon].ammo=weapons[currentWeapon].max;
-  recoilIndex=0;
-  updateUI();
+  ak.rotation.x=0;
   reloading=false;
+  updateUI();
  },1200);
 }
 
-// HITMARKER
-function showHitmarker(){
- const h=document.getElementById("hitmarker");
- h.style.opacity=1;
- setTimeout(()=>h.style.opacity=0,120);
+// ================= VIEWMODEL =================
+function createAK(){
+ const gun=new THREE.Group();
+
+ const metal=new THREE.MeshStandardMaterial({color:0x2b2b2b});
+ const wood=new THREE.MeshStandardMaterial({color:0x5a3a1b});
+
+ const body=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.15,1.3),metal);
+ gun.add(body);
+
+ const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,1.1),metal);
+ barrel.position.set(0,0.1,-0.9);
+ gun.add(barrel);
+
+ const handle=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.35,0.2),wood);
+ handle.position.set(0,-0.25,0.1);
+ gun.add(handle);
+
+ return gun;
 }
 
-// ---------------- ENEMIES ----------------
+const ak=createAK();
+ak.position.set(0.1,-0.15,-0.5);
+camera.add(ak);
+
+// ================= ENEMIES =================
 const enemies=[];
 
 function spawnEnemy(){
@@ -257,25 +260,34 @@ function spawnEnemy(){
   bodyHitbox:body,
   headHitbox:head,
   hp:100,
-  speed:0.02
+  speed:0.02,
+  shootCooldown:0,
+  fireRate:1200
  });
 }
 setInterval(spawnEnemy,2500);
 
-// ---------------- SHOOT ----------------
+// ================= HITMARKER =================
+function showHitmarker(){
+ const h=document.getElementById("hitmarker");
+ h.style.opacity=1;
+ setTimeout(()=>h.style.opacity=0,120);
+}
+
+// ================= SHOOT =================
 document.addEventListener("click",()=>{
 
  const w=weapons[currentWeapon];
  const now=Date.now();
 
- if(reloading||w.ammo<=0)return;
- if(now-lastShot<w.fireRate)return;
+ if(reloading||w.ammo<=0) return;
+ if(now-lastShot<w.fireRate) return;
 
  w.ammo--;
  lastShot=now;
  updateUI();
 
- const r=w.recoil[recoilIndex]||w.recoil[w.recoil.length-1];
+ const r=w.recoil[recoilIndex]||w.recoil[0];
  recoilIndex++;
 
  const ray=new THREE.Raycaster();
@@ -287,10 +299,9 @@ document.addEventListener("click",()=>{
  const bodyHit=ray.intersectObject(e.bodyHitbox,true);
 
  if(headHit.length){
-  e.hp-=80;
+  e.hp=0;
   showHitmarker();
- }
- else if(bodyHit.length){
+ } else if(bodyHit.length){
   e.hp-=30;
   showHitmarker();
  }
@@ -302,7 +313,7 @@ document.addEventListener("click",()=>{
  });
 });
 
-// ---------------- LOOP ----------------
+// ================= LOOP =================
 function animate(){
  requestAnimationFrame(animate);
 
@@ -311,6 +322,7 @@ function animate(){
  camera.rotation.x=pitch;
 
  let move=new THREE.Vector3();
+
  if(keys["w"])move.z-=0.1;
  if(keys["s"])move.z+=0.1;
  if(keys["a"])move.x-=0.1;
@@ -328,10 +340,10 @@ function animate(){
 
  for(let w of walls){
   w.box.setFromObject(w);
-  if(playerBox.intersectsBox(w.box))blocked=true;
+  if(playerBox.intersectsBox(w.box)) blocked=true;
  }
 
- if(!blocked)camera.position.copy(next);
+ if(!blocked) camera.position.copy(next);
 
  camera.position.y+=velocityY;
  velocityY+=gravity;
@@ -340,7 +352,7 @@ function animate(){
   camera.position.y=2;
   velocityY=0;
   onGround=true;
- }else onGround=false;
+ } else onGround=false;
 
  enemies.forEach(e=>{
   const dir=camera.position.clone().sub(e.model.position);
@@ -348,7 +360,9 @@ function animate(){
 
   dir.normalize();
 
-  if(dist<25)e.model.position.add(dir.multiplyScalar(e.speed));
+  if(dist<25){
+   e.model.position.add(dir.multiplyScalar(e.speed));
+  }
 
   if(dist<1.5){
    hp-=0.2;
@@ -364,139 +378,3 @@ animate();
 
 </body>
 </html>
-function createAK(){
- const gun = new THREE.Group();
-
- const metal = new THREE.MeshStandardMaterial({ color: 0x2b2b2b });
- const wood = new THREE.MeshStandardMaterial({ color: 0x5a3a1b });
-
- // main body
- const body = new THREE.Mesh(
-  new THREE.BoxGeometry(0.45, 0.15, 1.3),
-  metal
- );
- gun.add(body);
-
- // barrel
- const barrel = new THREE.Mesh(
-  new THREE.BoxGeometry(0.08, 0.08, 1.1),
-  metal
- );
- barrel.position.set(0, 0.1, -0.9);
- gun.add(barrel);
-
- // handle
- const handle = new THREE.Mesh(
-  new THREE.BoxGeometry(0.15, 0.35, 0.2),
-  wood
- );
- handle.position.set(0, -0.25, 0.1);
- gun.add(handle);
-
- // magazine (angled feel)
- const mag = new THREE.Mesh(
-  new THREE.BoxGeometry(0.15, 0.5, 0.25),
-  metal
- );
- mag.position.set(0, -0.3, -0.2);
- mag.rotation.x = -0.2;
- gun.add(mag);
-
- // stock
- const stock = new THREE.Mesh(
-  new THREE.BoxGeometry(0.2, 0.2, 0.9),
-  wood
- );
- stock.position.set(0, 0, 1);
- gun.add(stock);
-
- return gun;
-}let move=new THREE.Vector3();
-if(keys["w"])move.z-=0.1;
-...const moveSpeed = 0.12;
-
-let move = new THREE.Vector3();
-
-if (keys["w"]) move.z -= moveSpeed;
-if (keys["s"]) move.z += moveSpeed;
-if (keys["a"]) move.x -= moveSpeed;
-if (keys["d"]) move.x += moveSpeed;
-
-// normalize diagonal speed
-if (move.length() > 0) move.normalize().multiplyScalar(moveSpeed);
-
-// rotate movement to camera direction
-move.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-
-// collision-ready movement
-const next = camera.position.clone();
-next.x += move.x;
-next.z += move.z;
-
-// wall collision check (keep your existing logic)
-const playerBox = new THREE.Box3().setFromCenterAndSize(
- next,
- new THREE.Vector3(1,2,1)
-);
-
-let blocked = false;
-
-for (let w of walls) {
- w.box.setFromObject(w);
- if (playerBox.intersectsBox(w.box)) blocked = true;
-}
-
-if (!blocked) camera.position.copy(next);const isMoving =
- keys["w"] || keys["a"] || keys["s"] || keys["d"];
-
-if (isMoving) {
- camera.position.y = 2 + Math.sin(Date.now() * 0.01) * 0.05;
-}const tracers = [];function createTracer(start, end) {
- const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-
- const points = [];
- points.push(start);
- points.push(end);
-
- const geometry = new THREE.BufferGeometry().setFromPoints(points);
- const line = new THREE.Line(geometry, material);
-
- scene.add(line);
-
- tracers.push({
-  line,
-  life: 0.1
- });
-}for (let i = tracers.length - 1; i >= 0; i--) {
- tracers[i].life -= 0.016;
-
- if (tracers[i].life <= 0) {
-  scene.remove(tracers[i].line);
-  tracers.splice(i, 1);
- }
-}if (headHit.length) {
- e.hp = 0; // 💀 instant kill
- showHitmarker();
-}
-
-else if (bodyHit.length) {
- e.hp -= 30;
- showHitmarker();
-}ray.setFromCamera(...)function reload(){
- if (reloading) return;
- reloading = true;
-
- // gun animation (tilt down)
- ak.rotation.x = 0.6;
-
- setTimeout(()=>{
-  weapons[currentWeapon].ammo = weapons[currentWeapon].max;
-  recoilIndex = 0;
-  updateUI();
-
-  // return gun
-  ak.rotation.x = 0;
-
-  reloading = false;
- }, 1200);
-}
