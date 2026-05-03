@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CS FPS FULL FIXED BUILD</title>
+<title>CS FPS ULTIMATE BUILD</title>
 
 <style>
 body { margin:0; overflow:hidden; background:#111; }
@@ -86,6 +86,21 @@ document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
+// ================= SOUND =================
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+const audioLoader = new THREE.AudioLoader();
+
+function playSound(url, volume=0.4){
+ const sound = new THREE.Audio(listener);
+ audioLoader.load(url, buffer=>{
+  sound.setBuffer(buffer);
+  sound.setVolume(volume);
+  sound.play();
+ });
+}
+
 // ================= FLOOR =================
 const floor = new THREE.Mesh(
  new THREE.PlaneGeometry(100,100),
@@ -95,54 +110,35 @@ floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
 // ================= WALLS =================
-const walls = [];
-
+const walls=[];
 function createWall(x,z,w,h,d){
- const wall = new THREE.Mesh(
+ const wall=new THREE.Mesh(
   new THREE.BoxGeometry(w,h,d),
   new THREE.MeshStandardMaterial({color:0x555555})
  );
  wall.position.set(x,h/2,z);
  scene.add(wall);
- wall.box = new THREE.Box3().setFromObject(wall);
+ wall.box=new THREE.Box3().setFromObject(wall);
  walls.push(wall);
 }
 
-// MAP
-function buildMap(){
- createWall(0,-25,60,5,2);
- createWall(0,25,60,5,2);
- createWall(-30,0,2,5,60);
- createWall(30,0,2,5,60);
-
- createWall(0,0,4,3,10);
- createWall(-6,-3,2,3,6);
- createWall(6,3,2,3,6);
-
- createWall(-15,-15,2,3,20);
- createWall(-22,-10,2,3,10);
-
- createWall(15,15,8,3,8);
- createWall(18,18,2,3,6);
-
- createWall(-5,15,3,2,3);
- createWall(5,-15,3,2,3);
+// simple map
+for(let i=-25;i<=25;i+=10){
+ createWall(i,0,2,5,2);
+ createWall(0,i,2,5,2);
 }
-
-buildMap();
 
 // ================= PLAYER =================
 camera.position.set(0,2,5);
-let hp = 100;
+let hp=100;
+let velocityY=0;
+let onGround=false;
 
-let velocityY = 0;
-let onGround = false;
-
-const gravity = -0.015;
-const jumpStrength = 0.35;
+const gravity=-0.015;
+const jumpStrength=0.35;
 
 // ================= INPUT =================
-const keys = {};
+const keys={};
 document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
 document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
@@ -150,8 +146,8 @@ let yaw=0,pitch=0;
 document.body.onclick=()=>document.body.requestPointerLock();
 
 document.addEventListener("mousemove",e=>{
- yaw -= e.movementX*0.002;
- pitch -= e.movementY*0.002;
+ yaw-=e.movementX*0.002;
+ pitch-=e.movementY*0.002;
  pitch=Math.max(-1.5,Math.min(1.5,pitch));
 });
 
@@ -160,82 +156,76 @@ document.addEventListener("keydown",e=>{
   velocityY=jumpStrength;
   onGround=false;
  }
+
+ if(e.key.toLowerCase()==="e"&&!bombPlanted){
+  plantBomb();
+ }
 });
 
 // ================= WEAPONS =================
-const weapons = {
- ak:{ammo:30,max:30,fireRate:90,recoil:[
-  {x:0,y:0},{x:0.2,y:-0.3},{x:-0.1,y:-0.4}
- ]},
- pistol:{ammo:12,max:12,fireRate:400,recoil:[
-  {x:0,y:0},{x:0.05,y:-0.1}
- ]}
-};
+let recoilIndex=0;
+let lastShot=0;
+let reloading=false;
 
-let currentWeapon="ak";
-let recoilIndex=0,lastShot=0,reloading=false;
+const akSpray=[
+ {x:0,y:0},{x:0.1,y:-0.2},{x:-0.15,y:-0.3},
+ {x:0.2,y:-0.35},{x:-0.25,y:-0.4},
+ {x:0.3,y:-0.5},{x:-0.2,y:-0.55},
+ {x:0.1,y:-0.6}
+];
 
-function updateUI(){
- document.getElementById("ammo").textContent =
- weapons[currentWeapon].ammo+" ("+currentWeapon.toUpperCase()+")";
-}
-updateUI();
-
-document.addEventListener("keydown",e=>{
- if(e.key==="1")switchWeapon("ak");
- if(e.key==="2")switchWeapon("pistol");
- if(e.key.toLowerCase()==="r")reload();
-});
-
-function switchWeapon(w){
- currentWeapon=w;
- recoilIndex=0;
- updateUI();
+// ================= HITMARKER =================
+function showHitmarker(){
+ const h=document.getElementById("hitmarker");
+ h.style.opacity=1;
+ setTimeout(()=>h.style.opacity=0,120);
 }
 
-function reload(){
- if(reloading) return;
- reloading=true;
- ak.rotation.x=0.6;
-
- setTimeout(()=>{
-  weapons[currentWeapon].ammo=weapons[currentWeapon].max;
-  ak.rotation.x=0;
-  reloading=false;
-  updateUI();
- },1200);
-}
-
-// ================= VIEWMODEL =================
+// ================= AK =================
 function createAK(){
- const gun=new THREE.Group();
+ const g=new THREE.Group();
+ const m=new THREE.MeshStandardMaterial({color:0x2b2b2b});
+ const w=new THREE.MeshStandardMaterial({color:0x5a3a1b});
 
- const metal=new THREE.MeshStandardMaterial({color:0x2b2b2b});
- const wood=new THREE.MeshStandardMaterial({color:0x5a3a1b});
+ const body=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.15,1.3),m);
+ const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,1.1),m);
+ barrel.position.z=-0.9;
 
- const body=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.15,1.3),metal);
- gun.add(body);
-
- const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,1.1),metal);
- barrel.position.set(0,0.1,-0.9);
- gun.add(barrel);
-
- const handle=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.35,0.2),wood);
- handle.position.set(0,-0.25,0.1);
- gun.add(handle);
-
- return gun;
+ g.add(body);
+ g.add(barrel);
+ return g;
 }
 
 const ak=createAK();
 ak.position.set(0.1,-0.15,-0.5);
 camera.add(ak);
 
+// ================= BOMB =================
+let bombPlanted=false;
+let bombTimer=40;
+let bombObj=null;
+
+function plantBomb(){
+ bombPlanted=true;
+ bombTimer=40;
+
+ const b=new THREE.Mesh(
+  new THREE.SphereGeometry(0.3),
+  new THREE.MeshStandardMaterial({color:0xff0000})
+ );
+
+ b.position.copy(camera.position);
+ scene.add(b);
+ bombObj=b;
+
+ playSound("https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b7d7d9c45.mp3?filename=reload-5931.mp3",0.3);
+}
+
 // ================= ENEMIES =================
 const enemies=[];
 
 function spawnEnemy(){
- const enemy=new THREE.Group();
+ const e=new THREE.Group();
 
  const body=new THREE.Mesh(
   new THREE.BoxGeometry(1,1.2,0.6),
@@ -249,14 +239,13 @@ function spawnEnemy(){
  );
  head.position.y=1.4;
 
- enemy.add(body);
- enemy.add(head);
+ e.add(body); e.add(head);
 
- enemy.position.set((Math.random()-0.5)*25,0,(Math.random()-0.5)*25);
- scene.add(enemy);
+ e.position.set((Math.random()-0.5)*20,0,(Math.random()-0.5)*20);
+ scene.add(e);
 
  enemies.push({
-  model:enemy,
+  model:e,
   bodyHitbox:body,
   headHitbox:head,
   hp:100,
@@ -267,27 +256,17 @@ function spawnEnemy(){
 }
 setInterval(spawnEnemy,2500);
 
-// ================= HITMARKER =================
-function showHitmarker(){
- const h=document.getElementById("hitmarker");
- h.style.opacity=1;
- setTimeout(()=>h.style.opacity=0,120);
-}
-
 // ================= SHOOT =================
 document.addEventListener("click",()=>{
 
- const w=weapons[currentWeapon];
  const now=Date.now();
+ if(now-lastShot<90||reloading) return;
 
- if(reloading||w.ammo<=0) return;
- if(now-lastShot<w.fireRate) return;
-
- w.ammo--;
  lastShot=now;
- updateUI();
 
- const r=w.recoil[recoilIndex]||w.recoil[0];
+ playSound("https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a3c0c6.mp3?filename=gunshot-36488.mp3",0.3);
+
+ const r=akSpray[recoilIndex%akSpray.length];
  recoilIndex++;
 
  const ray=new THREE.Raycaster();
@@ -295,13 +274,13 @@ document.addEventListener("click",()=>{
 
  enemies.forEach((e,i)=>{
 
- const headHit=ray.intersectObject(e.headHitbox,true);
- const bodyHit=ray.intersectObject(e.bodyHitbox,true);
+ const h=ray.intersectObject(e.headHitbox,true);
+ const b=ray.intersectObject(e.bodyHitbox,true);
 
- if(headHit.length){
+ if(h.length){
   e.hp=0;
   showHitmarker();
- } else if(bodyHit.length){
+ } else if(b.length){
   e.hp-=30;
   showHitmarker();
  }
@@ -332,15 +311,12 @@ function animate(){
  next.x+=move.x;
  next.z+=move.z;
 
- const playerBox=new THREE.Box3().setFromCenterAndSize(
-  next,new THREE.Vector3(1,2,1)
- );
+ const box=new THREE.Box3().setFromCenterAndSize(next,new THREE.Vector3(1,2,1));
 
  let blocked=false;
-
  for(let w of walls){
   w.box.setFromObject(w);
-  if(playerBox.intersectsBox(w.box)) blocked=true;
+  if(box.intersectsBox(w.box)) blocked=true;
  }
 
  if(!blocked) camera.position.copy(next);
@@ -354,14 +330,21 @@ function animate(){
   onGround=true;
  } else onGround=false;
 
+ // AI (cover + chase)
  enemies.forEach(e=>{
   const dir=camera.position.clone().sub(e.model.position);
   const dist=dir.length();
 
   dir.normalize();
 
-  if(dist<25){
+  const ray=new THREE.Raycaster(e.model.position,dir);
+  const hit=ray.intersectObjects(walls);
+
+  if(dist<25 && hit.length===0){
    e.model.position.add(dir.multiplyScalar(e.speed));
+  } else {
+   const side=new THREE.Vector3(-dir.z,0,dir.x);
+   e.model.position.add(side.multiplyScalar(0.02));
   }
 
   if(dist<1.5){
@@ -369,6 +352,15 @@ function animate(){
    document.getElementById("hp").textContent=Math.floor(hp);
   }
  });
+
+ // bomb timer
+ if(bombPlanted){
+  bombTimer-=0.016;
+  if(bombTimer<=0){
+   alert("💥 BOMB EXPLODED - TERRORISTS WIN");
+   location.reload();
+  }
+ }
 
  renderer.render(scene,camera);
 }
