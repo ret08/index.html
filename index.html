@@ -393,16 +393,30 @@ ak.position.x = 0.25 + Math.sin(Date.now() * 0.01) * 0.01;
  camera.rotation.y=yaw;
  camera.rotation.x=pitch;
 
- let move=new THREE.Vector3();
+const moveSpeed = 0.12;
 
- if(keys["w"])move.z-=0.1;
- if(keys["s"])move.z+=0.1;
- if(keys["a"])move.x-=0.1;
- if(keys["d"])move.x+=0.1;
+let move = new THREE.Vector3();
 
- const next=camera.position.clone();
- next.x+=move.x;
- next.z+=move.z;
+// input
+if (keys["w"]) move.z -= 1;
+if (keys["s"]) move.z += 1;
+if (keys["a"]) move.x -= 1;
+if (keys["d"]) move.x += 1;
+
+// normalize so diagonal isn't faster
+if (move.length() > 0) move.normalize();
+
+// 🔥 rotate movement to match camera direction
+move.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+
+// apply speed
+move.multiplyScalar(moveSpeed);
+
+// predicted next position
+const next = camera.position.clone();
+next.add(move);const box=new THREE.Box3().setFromCenterAndSize(
+ next,new THREE.Vector3(1,2,1)
+);
 
  const box=new THREE.Box3().setFromCenterAndSize(next,new THREE.Vector3(1,2,1));
 
