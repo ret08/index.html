@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mini CS Core</title>
+<style>
+body { margin:0; overflow:hidden; }
+#ui {
+ position:absolute; top:10px; left:10px;
+ color:white; font-family:Arial;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">
+HP: <span id="hp">100</span><br>
+Ammo: <span id="ammo">30</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
+
+<script>
+// SCENE
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// LIGHT
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
+
+// FLOOR
+const floor = new THREE.Mesh(
+ new THREE.PlaneGeometry(100,100),
+ new THREE.MeshStandardMaterial({color:0x222222})
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+// WALLS
+const walls = [];
+function wall(x,z,w,h){
+ const m = new THREE.Mesh(
+  new THREE.BoxGeometry(w,2,h),
+  new THREE.MeshStandardMaterial({color:0x555555})
+ );
+ m.position.set(x,1,z);
+ scene.add(m);
+ walls.push(m);
+}
+wall(5,0,1,10);
+wall(-5,0,1,10);
+
+// PLAYER
+camera.position.set(0,2,5);
+let velocity = new THREE.Vector3();
+let onGround = false;
+let hp = 100;
+let ammo = 30;
+
+// INPUT
+const keys = {};
+document.addEventListener("keydown", e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener("keyup", e=>keys[e.key.toLowerCase()]=false);
+
+// MOUSE LOOK
+let yaw=0, pitch=0;
+document.body.onclick=()=>document.body.requestPointerLock();
+document.addEventListener("mousemove", e=>{
+ yaw -= e.movementX*0.002;
+ pitch -= e.movementY*0.002;
+ pitch = Math.max(-1.5, Math.min(1.5,pitch));
+});
+
+// GRAVITY
+const gravity = -0.01;
+const jumpForce = 0.2;
+
+// COLLISION
+function collide(pos){
+ for(let w of walls){
+  if (Math.abs(pos.x-w.position.x)<1 &&
+      Math.abs(pos.z-w.position.z)<5) return true;
+ }
+ return false;
+}
+
+// SHOOT (HITSCAN)
+document.addEventListener("click", ()=>{
+ if (ammo<=0) return;
+ ammo--;
+ document.getElementById("ammo").textContent=ammo;
+
+ const ray = new THREE.Raycaster();
+ ray.setFromCamera(new THREE.Vector2(0,0), camera);
+
+ enemies.forEach(e=>{
+  if (ray.intersectObject(e.head).length){
+    e.hp -= 3; // headshot
+  } else if (ray.intersectObject(e.body).length){
+    e.hp -= 1;
+  }
+ });
+});
+
+// ENEMIES
+const enemies=[];
+function spawnEnemy(){
+ const body = new THREE.Mesh(
+  new THREE.BoxGeometry(1,1.5,1),
+  new THREE.MeshStandardMaterial({color:"red"})
+ );
+ const head = new THREE.Mesh(
+  new THREE.BoxGeometry(0.5,0.5,0.5),
+  new THREE.MeshStandardMaterial({color:"yellow"})
+ );
+
+ body.position.set((Math.random()-0.5)*20,0.75,(Math.random()-0.5)*20);
+ head.position.set(0,1.25,0);
+ body.add(head);
+ scene.add(body);
+
+ enemies.push({body, head, hp:5});
+}
+setInterval(spawnEnemy,3000);
+
+// LOOP
+function animate(){
+ requestAnimationFrame(animate);
+
+ // CAMERA ROTATION
+ camera.rotation.order="YXZ";
+ camera.rotation.y=yaw;
+ camera.rotation.x=pitch;
+
+ // MOVEMENT INPUT
+ let move = new THREE.Vector3();
+ if(keys["w"]) move.z -= 0.1;
+ if(keys["s"]) move.z += 0.1;
+ if(keys["a"]) move.x -= 0.1;
+ if(keys["d"]) move.x += 0.1;
+
+ camera.translateX(move.x);
+ camera.translateZ(move.z);
+
+ // COLLISION
+ if (collide(camera.position)) {
+   camera.translateX(-move.x);
+   camera.translateZ(-move.z);
+ }
+
+ // GRAVITY
+ velocity.y += gravity;
+ camera.position.y += velocity.y;
+
+ if (camera.position.y < 2){
+   camera.position.y = 2;
+   velocity.y = 0;
+   onGround = true;
+ } else {
+   onGround = false;
+ }
+
+ // JUMP
+ if (keys[" "] && onGround){
+   velocity.y = jumpForce;
+ }
+
+ // ENEMY AI (simple chase)
+ enemies.forEach(e=>{
+  const dir = camera.position.clone().sub(e.body.position);
+  const dist = dir.length();
+
+  if(dist < 20){
+    dir.normalize();
+    e.body.position.add(dir.multiplyScalar(0.02));
+  }
+
+  if (e.hp <= 0){
+    scene.remove(e.body);
+  }
+
+  if (dist < 1.5){
+    hp -= 0.1;
+    document.getElementById("hp").textContent = Math.floor(hp);
+  }
+ });
+
+ renderer.render(scene,camera);
+}
+animate();
+</script>
+
+</body>
+</html>#crosshair {
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ width: 20px;
+ height: 20px;
+ margin-left: -10px;
+ margin-top: -10px;
+ pointer-events: none;
+}
+#crosshair:before, #crosshair:after {
+ content: '';
+ position: absolute;
+ background: white;
+}
+#crosshair:before {
+ left: 9px; top: 0;
+ width: 2px; height: 20px;
+}
+#crosshair:after {
+ top: 9px; left: 0;
+ width: 20px; height: 2px;
+}document.addEventListener("click", ()=>{
+ if (ammo <= 0) return;
+
+ ammo--;
+ document.getElementById("ammo").textContent = ammo;
+
+ const ray = new THREE.Raycaster();
+ ray.setFromCamera(new THREE.Vector2(0,0), camera);
+
+ enemies.forEach(e => {
+   // IMPORTANT: check BOTH head + body properly
+   const headHit = ray.intersectObject(e.head, false);
+   const bodyHit = ray.intersectObject(e.body, true);
+
+   if (headHit.length > 0) {
+     e.hp -= 3;
+     console.log("HEADSHOT");
+   } else if (bodyHit.length > 0) {
+     e.hp -= 1;
+     console.log("BODY SHOT");
+   }
+ });
+});enemies.forEach((e, index) => {
+ const dir = camera.position.clone().sub(e.body.position);
+ const dist = dir.length();
+
+ if (dist < 20) {
+   dir.normalize();
+   e.body.position.add(dir.multiplyScalar(0.02));
+ }
+
+ if (dist < 1.5) {
+   hp -= 0.1;
+   document.getElementById("hp").textContent = Math.floor(hp);
+ }
+
+ // REMOVE DEAD ENEMIES PROPERLY
+ if (e.hp <= 0) {
+   scene.remove(e.body);
+   enemies.splice(index, 1);
+ }
+});<div id="hitmarker"></div>#hitmarker {
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ width: 30px;
+ height: 30px;
+ margin-left: -15px;
+ margin-top: -15px;
+ pointer-events: none;
+ opacity: 0;
+}
+
+#hitmarker:before, #hitmarker:after {
+ content: '';
+ position: absolute;
+ background: white;
+}
+
+#hitmarker:before {
+ width: 2px;
+ height: 30px;
+ left: 14px;
+ top: 0;
+ transform: rotate(45deg);
+}
+
+#hitmarker:after {
+ width: 2px;
+ height: 30px;
+ left: 14px;
+ top: 0;
+ transform: rotate(-45deg);
+}function showHitmarker() {
+ const hm = document.getElementById("hitmarker");
+ hm.style.opacity = 1;
+ setTimeout(() => hm.style.opacity = 0, 100);
+}function spawnDamageNumber(pos, amount) {
+ const div = document.createElement("div");
+ div.textContent = "-" + amount;
+ div.style.position = "absolute";
+ div.style.color = "red";
+ div.style.fontWeight = "bold";
+ div.style.left = (pos.x + innerWidth/2) + "px";
+ div.style.top = (pos.y + innerHeight/2) + "px";
+ div.style.pointerEvents = "none";
+ document.body.appendChild(div);
+
+ let y = 0;
+ const anim = setInterval(()=>{
+   y -= 1;
+   div.style.top = (parseFloat(div.style.top) + y) + "px";
+   div.style.opacity -= 0.02;
+
+   if (parseFloat(div.style.opacity) <= 0) {
+     clearInterval(anim);
+     div.remove();
+   }
+ }, 16);
+}if (headHit.length > 0) {
+ e.hp -= 3;
+ showHitmarker();
+ spawnDamageNumber({x:0,y:0}, 30);
+}
+
+else if (bodyHit.length > 0) {
+ e.hp -= 1;
+ showHitmarker();
+ spawnDamageNumber({x:0,y:0}, 10);
+}const gun = new THREE.Mesh(
+ new THREE.BoxGeometry(0.2, 0.2, 0.8),
+ new THREE.MeshStandardMaterial({color: 0x333333})
+);
+gun.position.set(0.3, -0.3, -0.8);
+camera.add(gun);
+scene.add(camera);const flash = new THREE.PointLight(0xffaa33, 0, 5);
+camera.add(flash);flash.intensity = 5;
+setTimeout(()=> flash.intensity = 0, 50);
