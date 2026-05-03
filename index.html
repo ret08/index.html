@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CS FPS ULTIMATE BUILD</title>
+<title>CS FPS FIXED BUILD</title>
 
 <style>
 body { margin:0; overflow:hidden; background:#111; }
@@ -59,6 +59,17 @@ body { margin:0; overflow:hidden; background:#111; }
 
 #hitmarker:before { transform:rotate(45deg); }
 #hitmarker:after { transform:rotate(-45deg); }
+
+#killfeed {
+ position:absolute;
+ top:10px;
+ right:10px;
+ color:white;
+ font-family:Arial;
+ font-size:14px;
+ text-align:right;
+}
+.kill { margin-bottom:5px; opacity:1; transition:opacity 2s; }
 </style>
 </head>
 
@@ -66,17 +77,18 @@ body { margin:0; overflow:hidden; background:#111; }
 
 <div id="ui">
 HP: <span id="hp">100</span><br>
-Ammo: <span id="ammo">30</span>
+Ammo: <span id="ammo">∞</span>
 </div>
 
 <div id="crosshair"></div>
 <div id="hitmarker"></div>
+<div id="killfeed"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
 
 <script>
 
-// ================= SCENE =================
+// ================= SETUP =================
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
@@ -85,21 +97,6 @@ renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
-
-// ================= SOUND =================
-const listener = new THREE.AudioListener();
-camera.add(listener);
-
-const audioLoader = new THREE.AudioLoader();
-
-function playSound(url, volume=0.4){
- const sound = new THREE.Audio(listener);
- audioLoader.load(url, buffer=>{
-  sound.setBuffer(buffer);
-  sound.setVolume(volume);
-  sound.play();
- });
-}
 
 // ================= FLOOR =================
 const floor = new THREE.Mesh(
@@ -111,25 +108,25 @@ scene.add(floor);
 
 // ================= WALLS =================
 const walls=[];
-function createWall(x,z,w,h,d){
- const wall=new THREE.Mesh(
+function wall(x,z,w,h,d){
+ const m=new THREE.Mesh(
   new THREE.BoxGeometry(w,h,d),
   new THREE.MeshStandardMaterial({color:0x555555})
  );
- wall.position.set(x,h/2,z);
- scene.add(wall);
- wall.box=new THREE.Box3().setFromObject(wall);
- walls.push(wall);
+ m.position.set(x,h/2,z);
+ scene.add(m);
+ m.box=new THREE.Box3().setFromObject(m);
+ walls.push(m);
 }
 
-// simple map
-for(let i=-25;i<=25;i+=10){
- createWall(i,0,2,5,2);
- createWall(0,i,2,5,2);
-}
+wall(0,-20,50,5,2);
+wall(0,20,50,5,2);
+wall(-25,0,2,5,50);
+wall(25,0,2,5,50);
 
 // ================= PLAYER =================
 camera.position.set(0,2,5);
+
 let hp=100;
 let velocityY=0;
 let onGround=false;
@@ -151,81 +148,38 @@ document.addEventListener("mousemove",e=>{
  pitch=Math.max(-1.5,Math.min(1.5,pitch));
 });
 
+// jump
 document.addEventListener("keydown",e=>{
  if(e.code==="Space"&&onGround){
   velocityY=jumpStrength;
   onGround=false;
  }
-
- if(e.key.toLowerCase()==="e"&&!bombPlanted){
-  plantBomb();
- }
 });
 
-// ================= WEAPONS =================
-let recoilIndex=0;
-let lastShot=0;
-let reloading=false;
-
-const akSpray=[
- {x:0,y:0},{x:0.1,y:-0.2},{x:-0.15,y:-0.3},
- {x:0.2,y:-0.35},{x:-0.25,y:-0.4},
- {x:0.3,y:-0.5},{x:-0.2,y:-0.55},
- {x:0.1,y:-0.6}
-];
-
-// ================= HITMARKER =================
-function showHitmarker(){
+// ================= FEEDBACK =================
+function hitmarker(){
  const h=document.getElementById("hitmarker");
  h.style.opacity=1;
- setTimeout(()=>h.style.opacity=0,120);
+ setTimeout(()=>h.style.opacity=0,100);
 }
 
-// ================= AK =================
-function createAK(){
- const g=new THREE.Group();
- const m=new THREE.MeshStandardMaterial({color:0x2b2b2b});
- const w=new THREE.MeshStandardMaterial({color:0x5a3a1b});
-
- const body=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.15,1.3),m);
- const barrel=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,1.1),m);
- barrel.position.z=-0.9;
-
- g.add(body);
- g.add(barrel);
- return g;
-}
-
-const ak=createAK();
-ak.position.set(0.1,-0.15,-0.5);
-camera.add(ak);
-
-// ================= BOMB =================
-let bombPlanted=false;
-let bombTimer=40;
-let bombObj=null;
-
-function plantBomb(){
- bombPlanted=true;
- bombTimer=40;
-
- const b=new THREE.Mesh(
-  new THREE.SphereGeometry(0.3),
-  new THREE.MeshStandardMaterial({color:0xff0000})
- );
-
- b.position.copy(camera.position);
- scene.add(b);
- bombObj=b;
-
- playSound("https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b7d7d9c45.mp3?filename=reload-5931.mp3",0.3);
+function killfeed(text){
+ const k=document.getElementById("killfeed");
+ const d=document.createElement("div");
+ d.className="kill";
+ d.textContent=text;
+ k.appendChild(d);
+ setTimeout(()=>{
+  d.style.opacity=0;
+  setTimeout(()=>d.remove(),2000);
+ },2000);
 }
 
 // ================= ENEMIES =================
 const enemies=[];
 
-function spawnEnemy(){
- const e=new THREE.Group();
+function spawn(){
+ const g=new THREE.Group();
 
  const body=new THREE.Mesh(
   new THREE.BoxGeometry(1,1.2,0.6),
@@ -239,62 +193,70 @@ function spawnEnemy(){
  );
  head.position.y=1.4;
 
- e.add(body); e.add(head);
+ g.add(body);
+ g.add(head);
 
- e.position.set((Math.random()-0.5)*20,0,(Math.random()-0.5)*20);
- scene.add(e);
+ g.position.set((Math.random()-0.5)*20,0,(Math.random()-0.5)*20);
+ scene.add(g);
 
  enemies.push({
-  model:e,
-  bodyHitbox:body,
-  headHitbox:head,
+  model:g,
+  body,
+  head,
   hp:100,
-  speed:0.02,
-  shootCooldown:0,
-  fireRate:1200
+  speed:0.02
  });
 }
-setInterval(spawnEnemy,2500);
+setInterval(spawn,2000);
 
 // ================= SHOOT =================
+let recoil=0;
+let last=0;
+
 document.addEventListener("click",()=>{
 
  const now=Date.now();
- if(now-lastShot<90||reloading) return;
+ if(now-last<120) return;
+ last=now;
 
- lastShot=now;
+ const pattern=[
+  {x:0,y:0},{x:0.1,y:-0.2},{x:-0.15,y:-0.3},
+  {x:0.2,y:-0.35},{x:-0.2,y:-0.4}
+ ];
 
- playSound("https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a3c0c6.mp3?filename=gunshot-36488.mp3",0.3);
-
- const r=akSpray[recoilIndex%akSpray.length];
- recoilIndex++;
+ const r=pattern[recoil%pattern.length];
+ recoil++;
 
  const ray=new THREE.Raycaster();
  ray.setFromCamera(new THREE.Vector2(r.x*0.01,r.y*0.01),camera);
 
  enemies.forEach((e,i)=>{
 
- const h=ray.intersectObject(e.headHitbox,true);
- const b=ray.intersectObject(e.bodyHitbox,true);
+ const h=ray.intersectObject(e.head,true);
+ const b=ray.intersectObject(e.body,true);
 
  if(h.length){
   e.hp=0;
-  showHitmarker();
- } else if(b.length){
-  e.hp-=30;
-  showHitmarker();
+  hitmarker();
+  killfeed("🔴 Headshot kill");
+ }
+
+ else if(b.length){
+  e.hp-=50;
+  hitmarker();
  }
 
  if(e.hp<=0){
   scene.remove(e.model);
   enemies.splice(i,1);
+  killfeed("☠ Enemy eliminated");
  }
  });
 });
 
 // ================= LOOP =================
-function animate(){
- requestAnimationFrame(animate);
+function loop(){
+ requestAnimationFrame(loop);
 
  camera.rotation.order="YXZ";
  camera.rotation.y=yaw;
@@ -315,12 +277,12 @@ function animate(){
 
  let blocked=false;
  for(let w of walls){
-  w.box.setFromObject(w);
   if(box.intersectsBox(w.box)) blocked=true;
  }
 
  if(!blocked) camera.position.copy(next);
 
+ // gravity
  camera.position.y+=velocityY;
  velocityY+=gravity;
 
@@ -330,21 +292,14 @@ function animate(){
   onGround=true;
  } else onGround=false;
 
- // AI (cover + chase)
+ // AI
  enemies.forEach(e=>{
   const dir=camera.position.clone().sub(e.model.position);
   const dist=dir.length();
-
   dir.normalize();
 
-  const ray=new THREE.Raycaster(e.model.position,dir);
-  const hit=ray.intersectObjects(walls);
-
-  if(dist<25 && hit.length===0){
+  if(dist<20){
    e.model.position.add(dir.multiplyScalar(e.speed));
-  } else {
-   const side=new THREE.Vector3(-dir.z,0,dir.x);
-   e.model.position.add(side.multiplyScalar(0.02));
   }
 
   if(dist<1.5){
@@ -353,18 +308,9 @@ function animate(){
   }
  });
 
- // bomb timer
- if(bombPlanted){
-  bombTimer-=0.016;
-  if(bombTimer<=0){
-   alert("💥 BOMB EXPLODED - TERRORISTS WIN");
-   location.reload();
-  }
- }
-
  renderer.render(scene,camera);
 }
-animate();
+loop();
 
 </script>
 
