@@ -95,7 +95,21 @@ const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
+const canvas = renderer.domElement;
 
+// click game to lock mouse
+canvas.addEventListener("click", () => {
+ canvas.requestPointerLock();
+});
+
+// optional: detect lock/unlock
+document.addEventListener("pointerlockchange", () => {
+ console.log(
+  document.pointerLockElement === canvas
+   ? "Mouse locked"
+   : "Mouse unlocked"
+ );
+});
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
 // ================= FLOOR =================
